@@ -1,7 +1,9 @@
 const {Client} = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken')
-
+const sgMail = require('@sendgrid/mail')
+  sgMail.setApiKey('123')
+   
 const client = new Client({
     user:"postgres",
     host:"127.0.0.1",
@@ -10,6 +12,14 @@ const client = new Client({
     port:5432
 }); 
 client.connect();
+
+const mail = {
+  to:'etc@gmail.com',
+  from:'zaeembaloch1198@gmail.com',
+  subject:'reset password',
+  text:'follow this link to reset your passcode',
+  html:'<a href="http://localhost:3000/setnewpassword">Reset Password</a>'
+}
 
 function validEmail(email) {
    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,40 +35,63 @@ function validPassword(password) {
 }
 
 const logIn = async (request, response) => {
- 
    try {
       const {email,password} = request.body
-      const token = jwt.sign({email:email,password:password},'secretkey')
+
       const result = await client.query(`SELECT email,password FROM users3 WHERE email = $1`,[email]);
       const user = result.rows[0]
-      if(!user) {
-        response.status(400).send('No user with this email')
-      }
+
       if(!validEmail(email)) {
         response.status(400).send('email is not valid!')
       }
       if(!validPassword(password)) {
      response.status(400).send('password must be at least 8 characters!')
       }
-
+      if(!user) {
+        response.status(400).send('No user with this email')
+      }
      if(user) {
         const passwordMatch = await bcrypt.compare(password,user.password) 
         if(passwordMatch) {
+          const token = jwt.sign({email:email,password:password},'secretkey')
           console.log('you are logged in')
          response.send(token)
        }else{
         console.log('password not matched')
        }
       }
-
     } catch (error) {
       console.error(error);
       response.status(500).send('internal error');
     }
   };  
 
+
+  const resetPassword = async (request,response) => {
+  try{
+    const {email} = request.body
+    if(!validEmail(email)) {
+      response.status(400).send('email not valid!')
+    }
+    const data = await client.query('SELECT email,password from users3 WHERE email = $1',[email])
+    const user = data.rows[0]
+    if(user.email == email) {
+      sgMail.send(mail)
+      .then(() => {
+        console.log('email sent succesfully')
+        response.status(200).send('email sent succesfully')
+      })
+    }
+    
+  }catch(err){
+    console.log(err)
+    response.status(500).send('no such email in database')
+  }
+  }
+
  
 
   module.exports= {
-    logIn
+    logIn,
+    resetPassword
   };

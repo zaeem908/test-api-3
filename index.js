@@ -10,5 +10,6 @@ fastify.get('/',(req,res) => {
 })
 
 fastify.post('/users',db.logIn)
+fastify.post('/resetpassword',db.resetPassword)
 
 fastify.listen(3000) 
